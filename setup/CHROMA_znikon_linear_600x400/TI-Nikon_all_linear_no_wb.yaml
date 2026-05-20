@@ -31,6 +31,7 @@ datasets:
     return_I: true
     feed_I: true
     pred_I: true
+    pred_chroma: false
     Ifrom: sensors
 
     gamma_in: 1

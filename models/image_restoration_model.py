@@ -100,10 +100,11 @@ class ImageCleanModel(BaseModel):
         try:
             self.l_sd = self.opt["train"]["losses"]["l_sd"]
             self.l_m = self.opt["train"]["losses"]["l_m"]
-            self.l_chroma = self.out["train"]["losses"]["l_chroma"]
+            self.l_chroma = self.opt["train"]["losses"].get("l_chroma", 0)
         except:
             self.l_sd = 0
             self.l_m = 0
+            self.l_chroma = 0
 
     def init_training_settings(self):
         self.net_g.train()
@@ -189,6 +190,13 @@ class ImageCleanModel(BaseModel):
             self.I = data['I'].to(self.device)
         except:
             self.I = None
+        
+        # try:
+        #     self.chroma_gt = data['chroma_gt']
+        #     if not isinstance(self.chroma_gt, torch.Tensor):
+        #         self.chroma_gt = torch.tensor(self.chroma_gt).to(self.device)
+        # except:
+        #     self.chroma_gt = self.chroma_gt.to(self.device)
 
         try:
             self.lq_gamma = data['lq_img_gamma']

@@ -66,6 +66,12 @@ class TripletModel(ImageCleanModel):
         else:
             self.anchor = {"lq": self.lq, "gt": self.gt, "lq_path": self.lq_path, "I": None}
 
+        if 'chroma_gt' in data:
+            v = data['chroma_gt']
+            if not isinstance(v, torch.Tensor):
+                v = torch.tensor(v, dtype=torch.float32)
+            self.anchor["chroma_gt"] = v.to(self.device)
+
 
     def optimize_parameters(self, current_iter):
         self.optimizer_g.zero_grad()

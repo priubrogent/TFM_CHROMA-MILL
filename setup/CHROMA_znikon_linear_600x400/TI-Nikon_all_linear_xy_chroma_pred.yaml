@@ -20,7 +20,7 @@ datasets:
     batch_size_per_gpu: 16
     num_worker_per_gpu: 4
     
-    total_epochs: 1
+    total_epochs: 1000
     gt_size: 128
     gt_sizes: [128]
 
