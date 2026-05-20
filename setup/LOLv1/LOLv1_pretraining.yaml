@@ -1,0 +1,166 @@
+model_type: ImageCleanModel
+manual_seed: 100
+scale: 1
+num_gpu: 1
+
+datasets:
+  root: /data/150-1/users/priubrogent/LOLv1/
+  train:
+    name: TrainSet
+    type: Dataset_PairedImage
+    data_gt: Train/target
+    data_lq: Train/input
+    geometric_augs: true
+    
+    filename_tmpl: '{}'
+    io_backend:
+      type: disk
+    
+    use_shuffle: true
+    batch_size_per_gpu: 64
+    num_worker_per_gpu: 12
+    
+    total_epochs: 5000
+    gt_size: 416
+    gt_sizes: [416]
+
+    dataset_enlarge_ratio: 1
+    prefetch_mode: ~
+    pin_memory: true
+    
+    return_I: false
+    feed_I: false
+    pred_I: false
+    
+    gamma_in: 1
+    gamma_train: 1
+    gamma_out: 1
+
+    i2use: all
+  
+  val:
+    name: ValSet
+    type: Dataset_PairedImage
+    data_gt: Val/target
+    data_lq: Val/input
+    io_backend:
+      type: disk
+    
+    batch_size_per_gpu: 1
+    num_worker_per_gpu: 0
+    return_I: false
+
+    gamma_in: 1
+    gamma_train: 1
+    gamma_out: 1
+
+    i2use: all
+  
+  test:
+    name: TestSet
+    type: Dataset_PairedImage
+    data_gt: Test/target
+    data_lq: Test/input
+    io_backend:
+      type: disk
+
+    return_I: false
+    
+    gamma_in: 1
+    gamma_train: 1
+    gamma_out: 1
+
+    i2use: all
+
+network_g:
+  type: RetinexFormer
+  in_channels: 3
+  out_channels: 3
+  n_feat: 40
+  stage: 1
+  num_blocks: [1,2,2]
+  use_prior: true
+
+path:
+  pretrain_network_g: ~
+  strict_load_g: true
+  resume_state: null
+
+train:
+  total_iter: 150000
+  warmup_iter: -1
+  use_grad_clip: true
+
+  scheduler:
+    type: CosineAnnealingRestartCyclicLR
+    periods: [46000, 104000]       
+    restart_weights: [1,1]
+    eta_mins: [0.0003,0.000001]   
+
+  mixing_augs:
+    mixup: true
+    mixup_beta: 1.2
+    use_identity: true
+
+  optim_g:
+    type: Adam
+    lr: !!float 2e-4
+    betas: [0.9, 0.999]
+
+  pixel_opt:
+    type: L1Loss
+    loss_weight: 1
+    reduction: mean
+
+
+  losses:
+    l_sd: 0
+    l_m: 0
+    l_tr: 0
+    m: 0.0   
+
+val:
+  window_size: 4
+  val_freq: 5
+  save_img: true
+  save_img_freq: 100
+  log_img_freq: 5
+  rgb2bgr: true
+  use_image: true
+  max_minibatch: 1
+
+  metrics:
+    psnr:
+      crop_border: 0
+      test_y_channel: true
+      type: calculate_psnr
+
+    
+
+test:
+  window_size: 4
+  val_freq: 1000
+  save_img: true
+  rgb2bgr: true
+  use_image: false
+  max_minibatch: 1
+  
+
+logger:
+  print_freq: 10
+  save_checkpoint_freq: 1000.0
+  use_tb_logger: false
+
+dist_params:
+  backend: nccl
+  port: 29500
+  
+launcher: none
+gpu_id: [0]
+
+
+wandb:
+  project: RetinexFormer-LOLv1
+  entity: tfm-priubrogent
+  resume: ~              
+  id: ~
