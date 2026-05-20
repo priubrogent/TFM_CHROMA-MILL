@@ -100,7 +100,8 @@ class Denoiser_emb(nn.Module):
             # OUR ADDITION: change the illu_fea last channel for a channel of ones * lamda
             illu_pred = fea[:,0:1,:,:].clone()
             # fea[:,0:1,:,:] = torch.ones_like(fea[:,0:1,:,:]) * I.unsqueeze(1).unsqueeze(1).unsqueeze(1).to(fea.device)
-            self.embedding_done = fea[:, 1:, :, :].clone()
+            chroma_pred = fea[:, 1:3, :, :].clone() # CHROMA-MILL
+            self.embedding_done = fea[:, 3:, :, :].clone()
         except:
             self.embedding_done = fea.clone()
 
@@ -115,7 +116,7 @@ class Denoiser_emb(nn.Module):
         # Mapping
         out = self.mapping(fea) + x
 
-        return out, illu_pred
+        return out, illu_pred, chroma_pred
 
     def getEmbedding(self):
         return self.embedding_done
@@ -140,11 +141,11 @@ class RetinexFormer_Single_Stage_Emb(nn.Module):
         # print("img.shape:", img.shape, "I.shape:", I)
         illu_fea, illu_map, intensity = self.estimator(img, I = I)
         input_img = img # * illu_map + img
-        output_img, illu_pred = self.denoiser(input_img, illu_fea, I = I, I_pred = intensity)
+        output_img, illu_pred, chroma_pred = self.denoiser(input_img, illu_fea, I = I, I_pred = intensity)
 
         embedding = self.denoiser.getEmbedding()
 
-        return output_img, illu_pred, embedding
+        return output_img, illu_pred, chroma_pred, embedding
 
 
 class RetinexFormerEmb(nn.Module):
@@ -162,9 +163,9 @@ class RetinexFormerEmb(nn.Module):
         x: [b,c,h,w]
         return out:[b,c,h,w]
         """
-        out, illu_pred, embedding = self.body((x, I))
+        out, illu_pred, chroma_pred, embedding = self.body((x, I))
 
-        return out, illu_pred, embedding
+        return out, illu_pred, chroma_pred, embedding
 
 
 # if __name__ == '__main__':
