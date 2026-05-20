@@ -71,14 +71,14 @@ class TripletModel(ImageCleanModel):
         self.optimizer_g.zero_grad()
 
         if self.opt["datasets"]["train"]["feed_I"]:
-            preds, self.illu_pred, embedding = self.net_g(self.anchor["lq"], self.anchor["I"])
-            preds_pos, illu_pred_pos, embedding_pos = self.net_g(self.pos["lq"], self.pos["I"])
-            preds_neg, illu_pred_neg, embedding_neg = self.net_g(self.neg["lq"], self.neg["I"])
+            preds, self.illu_pred, self.chroma_pred, embedding = self.net_g(self.anchor["lq"], self.anchor["I"])
+            preds_pos, illu_pred_pos, chroma_pred_pos, embedding_pos = self.net_g(self.pos["lq"], self.pos["I"])
+            preds_neg, illu_pred_neg, chroma_pred_neg, embedding_neg = self.net_g(self.neg["lq"], self.neg["I"])
 
         else: 
-            preds, self.illu_pred, embedding = self.net_g(self.anchor["lq"])
-            preds_pos, illu_pred_pos, embedding_pos = self.net_g(self.pos["lq"])
-            preds_neg, illu_pred_neg, embedding_neg = self.net_g(self.neg["lq"])
+            preds, self.illu_pred, self.chroma_pred, embedding = self.net_g(self.anchor["lq"])
+            preds_pos, illu_pred_pos, chroma_pred_pos, embedding_pos = self.net_g(self.pos["lq"])
+            preds_neg, illu_pred_neg, chroma_pred_neg, embedding_neg = self.net_g(self.neg["lq"])
 
         if not isinstance(preds, list):
             preds = [preds]
@@ -101,7 +101,12 @@ class TripletModel(ImageCleanModel):
         else:
             I = None
         
-        loss_dict, loss_all = super().compute_loss(gt, preds, return_loss_all=True, I=I)
+        if "chroma_gt" in self.anchor.keys():
+            chroma_gt = self.anchor["chroma_gt"]
+        else:
+            chroma_gt = None
+        
+        loss_dict, loss_all = super().compute_loss(gt, preds, return_loss_all=True, I=I, chroma_gt=chroma_gt)
 
         # indices_tuple = self.miner(embedding, embedding_pos, embedding_neg)
         if embedding is not None:
@@ -132,9 +137,9 @@ class TripletModel(ImageCleanModel):
         self.net_g.eval()
         with torch.no_grad():
             if self.opt["datasets"]["train"]["feed_I"]:
-                pred, self.illu_pred, self.embedding = self.net_g(img, self.anchor["I"])
+                pred, self.illu_pred, self.chroma_pred, self.embedding = self.net_g(img, self.anchor["I"])
             else:
-                pred, self.illu_pred, self.embedding = self.net_g(img)
+                pred, self.illu_pred, self.chroma_pred, self.embedding = self.net_g(img)
 
         if isinstance(pred, list):
             pred = pred[-1]

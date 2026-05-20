@@ -100,6 +100,7 @@ class ImageCleanModel(BaseModel):
         try:
             self.l_sd = self.opt["train"]["losses"]["l_sd"]
             self.l_m = self.opt["train"]["losses"]["l_m"]
+            self.l_chroma = self.out["train"]["losses"]["l_chroma"]
         except:
             self.l_sd = 0
             self.l_m = 0
@@ -204,7 +205,7 @@ class ImageCleanModel(BaseModel):
         if self.opt["datasets"]["train"]["feed_I"] or self.opt["network_g"].get("use_I", False):
             preds, illu_pred, illu_map, input_img = self.net_g(self.lq, self.I)
         else: 
-            preds, illu_pred, illu_map, input_img = self.net_g(self.lq)
+            preds, illu_pred, chroma_pred, illu_map, input_img = self.net_g(self.lq)
 
         if not isinstance(preds, list):
             preds = [preds]
@@ -505,7 +506,7 @@ class ImageCleanModel(BaseModel):
 
 
 
-    def compute_loss(self, gt, preds, return_loss_all=False, I=None, miner=None):
+    def compute_loss(self, gt, preds, return_loss_all=False, I=None, miner=None, chroma_gt=None):
         loss_dict = OrderedDict()
         
         if not isinstance(preds, list):
@@ -554,8 +555,19 @@ class ImageCleanModel(BaseModel):
         else:
             loss_all = l_pix
 
+
         # print("Loss: ", loss_dict)
         # exit(0)
+        if self.opt["datasets"]["train"]["pred_chroma"] and hasattr(self, 'chroma_pred'):
+            chroma_pred = self.chroma_pred # [B,2,32,32]
+            pred = chroma_pred.mean(dim=(2,3)) # [B,2]
+            real = chroma_gt.to(chroma_pred.device) # [B,2]
+
+            l_chroma = F.mse_loss(pred, real) * self.l_chroma
+            loss_dict['l_chroma'] = l_chroma
+            loss_all += l_chroma
+            # print("CHROMA PRED SHAPE: ", chroma_pred.shape)
+
 
         if return_loss_all:
             return loss_dict, loss_all

@@ -41,6 +41,7 @@ class Dataset_PairedImage_Custom(data.Dataset):
             self.geometric_augs = opt['geometric_augs']
 
         self.return_I = opt['return_I']
+        self.return_chroma = opt['return_chroma']
 
     def get_I(self, data):
         I = data['intensity']
@@ -53,7 +54,11 @@ class Dataset_PairedImage_Custom(data.Dataset):
             I /= 254
         
         return I
-
+    def get_chroma(self, data):
+        col = data['color']
+        chroma = col2num[col]
+        return torch.tensor(chroma, dtype=torch.float32)
+    
     def prepare_item(self, data):
         if self.file_client is None:
             self.file_client = FileClient(
@@ -108,14 +113,19 @@ class Dataset_PairedImage_Custom(data.Dataset):
         # print("img_lq.shape:", img_lq.shape, "img_gt.shape:", img_gt.shape)
 
         d2return = {'lq': img_lq, 'gt': img_gt, 'lq_path': lq_path, 'gt_path': gt_path}
-        
         if self.return_I:
             if self.ourDS:
                 I = self.get_I(data)
                 d2return['I'] = I
             else:
                 d2return['I'] = 40/1861
-
+        
+        if self.return_chroma:
+            if self.ourDS:
+                chroma = self.get_chroma(data)
+                d2return['chroma'] = chroma
+            else:
+                d2return['chroma'] = 0.5
         return d2return
 
     def __getitem__(self, index):

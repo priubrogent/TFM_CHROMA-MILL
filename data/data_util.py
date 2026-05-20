@@ -73,7 +73,7 @@ def paired_paths_from_folder_custom(folders, keys, opt):
                 scene_name = scene_name.replace(color_str, new_color)
                 gt_path = os.path.join(gt_folder, scene_name+"-B_254.png")
                 
-                paths.append(dict([('lq_path', input_path), ('gt_path', gt_path), ('color', color), ('intensity', i)]))
+                paths.append(dict([('lq_path', input_path), ('gt_path', gt_path), ('color', color), ('intensity', i), ('chroma', col2num[color])]))
     return paths
 
 
