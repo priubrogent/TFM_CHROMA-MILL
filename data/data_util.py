@@ -41,9 +41,9 @@ def paired_paths_from_folder_custom(folders, keys, opt):
         filename_tmpl = '{}'
     i2use = opt['i2use']
     color_input = opt['color_input']
-    # color_gt = opt['color_gt']
+    color_gt = opt['color_gt']
     # color_input = ["White"]
-    color_gt = ["White"]
+    # color_gt = ["White"]
     
     input_folder, gt_folder = folders
 

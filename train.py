@@ -254,6 +254,13 @@ def main():
     for k, v in opt['val']['metrics'].items():
         best_metric[k] = 0
 
+    if opt["wandb"]["resume"] == "must":
+        best_psnr_path = osp.join(opt['path']['experiments_root'], 'best_psnr.pth')
+        if osp.exists(best_psnr_path):
+            best_ckpt = torch.load(best_psnr_path, map_location='cpu')
+            if 'best_metric' in best_ckpt:
+                best_metric = best_ckpt['best_metric']
+
     # create message logger (formatted outputs)
     msg_logger = MessageLogger(opt, current_iter, tb_logger)
 

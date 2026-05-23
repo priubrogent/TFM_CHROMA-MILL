@@ -41,6 +41,7 @@ datasets:
 
     i2use: all
     color_input: ["White", "Red", "Green", "Blue"]
+    color_gt: ["White"]
 
   val:
     name: ValSet
@@ -94,7 +95,7 @@ network_g:
   use_prior: true
 
 path:
-  pretrain_network_g: /home/priubrogent/00_PROJECTS/03_TFM/paper_code/runs/POL_znikon_linear_600x400_baselines_colors/Nikon_all_linear/best_psnr.pth
+  pretrain_network_g: /home/priubrogent/00_PROJECTS/03_TFM/CHROMA-MILL/runs/CHROMA_znikon_linear_600x400/TI-Nikon_all_linear_xy_chroma_pred/weights/net_g_30000.pth
   strict_load_g: true
   resume_state: null
 
@@ -157,7 +158,7 @@ test:
 
 logger:
   print_freq: 30
-  save_checkpoint_freq: 1000.0
+  save_checkpoint_freq: 10000.0
   use_tb_logger: false
 
 dist_params:
@@ -170,7 +171,7 @@ gpu_id: [0]
 wandb:
   project: CHROMA-MILL-Retinexformer
   entity: tfm-priubrogent
-  resume: ~              
-  id: ~
+  resume: must            
+  id: 0skuujpu
 
 
