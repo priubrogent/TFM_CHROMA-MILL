@@ -220,7 +220,10 @@ class Dataset_PairedImage_Custom_Correct(data.Dataset):
         self.return_I = opt['return_I']
         self.return_chroma = opt.get('return_chroma', False)
         self.chroma_space = opt.get('chroma_space', 'xy')
+        self.curriculum_prob = 1.0
 
+    def set_curriculum_prob(self, p):
+        self.curriculum_prob = p
 
     def get_I(self, data):
         I = data['intensity']
@@ -246,8 +249,17 @@ class Dataset_PairedImage_Custom_Correct(data.Dataset):
 
         scale = self.opt['scale']
 
-        gt_path = data['gt_path']
+        # gt_path = data['gt_path']
+        # img_bytes = self.file_client.get(gt_path, 'gt')
+        
+        if self.curriculum_prob < 1.0 and 'wb_gt_path' in data and random.random():
+            gt_path = data['wb_gt_path']
+        
+        else:
+            gt_path = data['gt_path']
+        
         img_bytes = self.file_client.get(gt_path, 'gt')
+
         try:
             img_gt = imfrombytes(img_bytes, float32=True)
         except:

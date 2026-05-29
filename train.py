@@ -115,6 +115,20 @@ def validate(model, val_loader, current_iter, tb_logger, opt, best_metric, epoch
     
     return current_metric, loss2log, best_metric
 
+def compute_curriculum_prob(epoch, total_epochs, opt):
+    cfg = opt.get("curriculum", {})
+    if not cfg.get('enabled', False):
+        return 1.0 # només LLIE
+    start = cfg.get('start_epoch', 0)
+    end = cfg.get('end_epoch', total_epochs)
+
+    if epoch <= start: return 0.0
+    if epoch >= end: return 1.0
+    t = (epoch - start) / (end - start)
+    if cfg.get('schedule', 'linear') == 'cosine':
+        t = 0.5 * (1 - math.cos(math.pi * t))
+    return t
+
 def create_train_val_dataloader(opt, logger):
     train_loader, val_loader = None, None
     for phase, dataset_opt in opt['datasets'].items():
@@ -257,7 +271,7 @@ def main():
     if opt["wandb"]["resume"] == "must":
         best_psnr_path = osp.join(opt['path']['experiments_root'], 'best_psnr.pth')
         if osp.exists(best_psnr_path):
-            best_ckpt = torch.load(best_psnr_path, map_location='cpu')
+            best_ckpt = torch.load(best_psnr_path, map_location='cpu', weights_only=False)
             if 'best_metric' in best_ckpt:
                 best_metric = best_ckpt['best_metric']
 
@@ -305,6 +319,10 @@ def main():
 
         train_epoch_loss = {}
         train_sampler.set_epoch(epoch)
+        curriculum_prob = compute_curriculum_prob(epoch, total_epochs, opt)
+        if hasattr(train_loader.dataset, 'set_curriculum_prob'):
+            train_loader.dataset.set_curriculum_prob(curriculum_prob)
+        wandb.log({"curriculum_prob": curriculum_prob}, step=current_iter)
         prefetcher.reset()
         train_data = prefetcher.next()
         data2log = {}

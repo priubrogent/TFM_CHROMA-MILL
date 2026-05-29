@@ -87,13 +87,14 @@ def paired_paths_from_folder_custom(folders, keys, opt):
                 gt_color = color if color in color_gt else color_gt[0]
                 new_color = col2string(gt_color.lower().capitalize())
                 scene_name_gt = scene_name.replace(color_str, new_color)
-
+                llie_gt_path = os.path.join(gt_folder, scene_name_gt + "-B_254.png")
+                wb_gt_path = os.path.join(input_folder, scene_name_gt + f"-B_{i}.png")
                 if len(b_gt) == 1 and b_gt[0] == 254:
-                    gt_path = os.path.join(gt_folder, scene_name_gt + "-B_254.png")
+                    gt_path = llie_gt_path
                 else:
-                    gt_path = os.path.join(input_folder, scene_name_gt + f"-B_{i}.png")
+                    gt_path = wb_gt_path
 
-                paths.append(dict([('lq_path', input_path), ('gt_path', gt_path), ('color', color), ('intensity', i), ('chroma', col2num[color])]))
+                paths.append(dict([('lq_path', input_path), ('gt_path', gt_path), ('wb_gt_path', wb_gt_path), ('llie_gt_path', llie_gt_path), ('color', color), ('intensity', i), ('chroma', col2num[color])]))
     return paths
 
 
