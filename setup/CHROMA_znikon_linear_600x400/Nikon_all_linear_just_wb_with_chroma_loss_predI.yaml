@@ -20,7 +20,7 @@ datasets:
     batch_size_per_gpu: 16
     num_worker_per_gpu: 4
     
-    total_epochs: 1000
+    total_epochs: 3000
     gt_size: 128
     gt_sizes: [128]
 
@@ -42,7 +42,7 @@ datasets:
     i2use: all
     color_input: ["White", "Red", "Green", "Blue"]
     color_gt: ["White"]
-
+    b_gt: all
   val:
     name: ValSet
     type: Dataset_PairedImage_Custom
@@ -63,6 +63,8 @@ datasets:
 
     i2use: all
     color_input: ["White", "Red", "Green", "Blue"]
+    color_gt: ["White"]
+    b_gt: all
 
   test:
     name: TestSet
@@ -84,6 +86,9 @@ datasets:
 
     i2use: all
     color_input: ["White", "Red", "Green", "Blue"]
+    color_gt: ["White"]
+    b_gt: all
+    
 
 network_g:
   type: RetinexFormerEmb
@@ -95,7 +100,7 @@ network_g:
   use_prior: true
 
 path:
-  pretrain_network_g: /home/priubrogent/00_PROJECTS/03_TFM/CHROMA-MILL/runs/CHROMA_znikon_linear_600x400/TI-Nikon_all_linear_xy_chroma_pred/weights/net_g_30000.pth
+  pretrain_network_g: null
   strict_load_g: true
   resume_state: null
 
@@ -171,7 +176,7 @@ gpu_id: [0]
 wandb:
   project: CHROMA-MILL-Retinexformer
   entity: tfm-priubrogent
-  resume: must            
-  id: 0skuujpu
+  resume: ~            
+  id: ~
 
 
