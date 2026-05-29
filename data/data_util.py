@@ -11,6 +11,12 @@ import os
 
 
 col2num = {"White": [0.3127, 0.329], "Red": [0.5235,  0.3297], "Green": [0.2821,  0.4727], "Blue":[0.1968, 0.1623]}
+def _xy_to_uv(x, y):
+    d = -2*x + 12*y + 3
+    return 4*x / d, 9*y / d
+
+col2uv = {name: list(_xy_to_uv(*xy)) for name, xy in col2num.items()}
+
 num2col = {(str(int(v[0]*10000)), str(int(v[1]*10000))): k for k, v in col2num.items()}
 getIntensityV = {"low": [0, 80, 113], "mid": [139, 161, 180, 197], "high": [227, 213, 241], "all": [0, 80, 113, 139, 161, 180, 197, 227, 213, 241]}
 
@@ -41,10 +47,11 @@ def paired_paths_from_folder_custom(folders, keys, opt):
         filename_tmpl = '{}'
     i2use = opt['i2use']
     color_input = opt['color_input']
-    color_gt = opt['color_gt']
+    color_gt = opt.get('color_gt', ['White'])
+    b_gt = opt.get('b_gt', [254])
     # color_input = ["White"]
     # color_gt = ["White"]
-    
+
     input_folder, gt_folder = folders
 
     input_paths = list(scandir(input_folder))
@@ -64,15 +71,28 @@ def paired_paths_from_folder_custom(folders, keys, opt):
             if i not in i2use:
                 continue
 
-        for color in color_input:
+        if color_input == 'all':
+            try:
+                colors_to_try = [string2col(color_str)]
+            except KeyError:
+                continue
+        else:
+            colors_to_try = color_input
+
+        for color in colors_to_try:
             color = color.lower().capitalize()
             if col2string(color) == color_str:
                 input_path = os.path.join(input_folder, name)
-                new_color = col2string(color_gt[0].lower().capitalize())
 
-                scene_name = scene_name.replace(color_str, new_color)
-                gt_path = os.path.join(gt_folder, scene_name+"-B_254.png")
-                
+                gt_color = color if color in color_gt else color_gt[0]
+                new_color = col2string(gt_color.lower().capitalize())
+                scene_name_gt = scene_name.replace(color_str, new_color)
+
+                if len(b_gt) == 1 and b_gt[0] == 254:
+                    gt_path = os.path.join(gt_folder, scene_name_gt + "-B_254.png")
+                else:
+                    gt_path = os.path.join(input_folder, scene_name_gt + f"-B_{i}.png")
+
                 paths.append(dict([('lq_path', input_path), ('gt_path', gt_path), ('color', color), ('intensity', i), ('chroma', col2num[color])]))
     return paths
 

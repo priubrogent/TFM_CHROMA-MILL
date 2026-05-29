@@ -21,6 +21,67 @@ from PIL import Image
 
 I2sensor = {'Red': {254: 1002.4110000000001, 241: 902.8583, 227: 801.4689, 213: 706.1163, 197: 604.5339, 180: 505.242, 161: 404.8023, 139: 302.3945, 113: 200.58630000000002, 80: 101.352, 0: 49}, 'Green': {254: 1926.4376, 241: 1734.1636999999998, 227: 1538.4017000000001, 213: 1354.3604999999998, 197: 1158.3797, 180: 966.924, 161: 773.3957, 139: 576.2801, 113: 380.6405, 80: 190.54399999999998, 0: 49}, 'Blue': {254: 193.59879999999998, 241: 173.97789999999998, 227: 154.0195, 213: 135.2763, 197: 115.34349999999999, 180: 95.904, 161: 76.2979, 139: 56.3923, 113: 36.7363, 80: 17.823999999999998, 0: 49}, 'White': {254: 1861.312, 241: 1675.5043, 227: 1486.3278999999998, 213: 1308.4803, 197: 1119.0979, 180: 934.0919999999999, 161: 747.0883, 139: 556.6255, 113: 367.60029999999995, 80: 183.95199999999997, 0: 49}}
 
+# --- extend dicts for blended colours ---
+# Must live here (after I2sensor) so it can reference both I2sensor and col2num.
+# col2num / col2uv / num2col are imported via `from data.data_util import *`
+# and are mutable dicts, so in-place updates are visible everywhere.
+
+def _mix_xy_combo(components):
+    X = Y = Z = 0.0
+    for color, w in components:
+        sensor = I2sensor[color][254]
+        x, y = col2num[color]
+        L = sensor * w
+        X += L * x / y
+        Y += L
+        Z += L * (1 - x - y) / y
+    S = X + Y + Z
+    return [X / S, Y / S]
+
+_COMBO_SPECS = {
+    # pairs  alpha=0.50
+    'Rg50':  [('Red',0.50),('Green',0.50)],
+    'Rb50':  [('Red',0.50),('Blue', 0.50)],
+    'Gb50':  [('Green',0.50),('Blue',0.50)],
+    'Rw50':  [('Red',0.50),('White',0.50)],
+    'Gw50':  [('Green',0.50),('White',0.50)],
+    'Bw50':  [('Blue',0.50),('White',0.50)],
+    # pairs  alpha=0.20 / 0.80
+    'Rg20':  [('Red',0.20),('Green',0.80)], 'Rg80':  [('Red',0.80),('Green',0.20)],
+    'Rb20':  [('Red',0.20),('Blue', 0.80)], 'Rb80':  [('Red',0.80),('Blue', 0.20)],
+    'Gb20':  [('Green',0.20),('Blue',0.80)], 'Gb80': [('Green',0.80),('Blue',0.20)],
+    'Rw20':  [('Red',0.20),('White',0.80)], 'Rw80':  [('Red',0.80),('White',0.20)],
+    'Gw20':  [('Green',0.20),('White',0.80)], 'Gw80': [('Green',0.80),('White',0.20)],
+    'Bw20':  [('Blue',0.20),('White',0.80)], 'Bw80':  [('Blue',0.80),('White',0.20)],
+    # pairs  alpha=0.35 / 0.65
+    'Rg35':  [('Red',0.35),('Green',0.65)], 'Rg65':  [('Red',0.65),('Green',0.35)],
+    'Rb35':  [('Red',0.35),('Blue', 0.65)], 'Rb65':  [('Red',0.65),('Blue', 0.35)],
+    'Gb35':  [('Green',0.35),('Blue',0.65)], 'Gb65': [('Green',0.65),('Blue',0.35)],
+    'Rw35':  [('Red',0.35),('White',0.65)], 'Rw65':  [('Red',0.65),('White',0.35)],
+    'Gw35':  [('Green',0.35),('White',0.65)], 'Gw65': [('Green',0.65),('White',0.35)],
+    'Bw35':  [('Blue',0.35),('White',0.65)], 'Bw65':  [('Blue',0.65),('White',0.35)],
+    # pairs  alpha=0.25 / 0.75
+    'Rg25':  [('Red',0.25),('Green',0.75)], 'Rg75':  [('Red',0.75),('Green',0.25)],
+    'Rb25':  [('Red',0.25),('Blue', 0.75)], 'Rb75':  [('Red',0.75),('Blue', 0.25)],
+    'Gb25':  [('Green',0.25),('Blue',0.75)], 'Gb75': [('Green',0.75),('Blue',0.25)],
+    'Rw25':  [('Red',0.25),('White',0.75)], 'Rw75':  [('Red',0.75),('White',0.25)],
+    'Gw25':  [('Green',0.25),('White',0.75)], 'Gw75': [('Green',0.75),('White',0.25)],
+    'Bw25':  [('Blue',0.25),('White',0.75)], 'Bw75':  [('Blue',0.75),('White',0.25)],
+    # triples  equal weights
+    'Rgb33': [('Red',1/3),('Green',1/3),('Blue',1/3)],
+    'Rgw33': [('Red',1/3),('Green',1/3),('White',1/3)],
+}
+
+for _name, _comps in _COMBO_SPECS.items():
+    _xy = _mix_xy_combo(_comps)
+    col2num[_name] = _xy
+    _d = -2*_xy[0] + 12*_xy[1] + 3
+    col2uv[_name]  = [4*_xy[0]/_d, 9*_xy[1]/_d]
+    num2col[(str(int(_xy[0]*10000)), str(int(_xy[1]*10000)))] = _name
+    I2sensor[_name] = {B: sum(I2sensor[c][B] * w for c, w in _comps)
+                       for B in I2sensor['Red']}
+
+
 class Dataset_PairedImage_Custom(data.Dataset):
     def __init__(self, opt, ourDS=True):
         super(Dataset_PairedImage_Custom, self).__init__()
@@ -42,6 +103,7 @@ class Dataset_PairedImage_Custom(data.Dataset):
 
         self.return_I = opt['return_I']
         self.return_chroma = opt.get('return_chroma', False)
+        self.chroma_space = opt.get('chroma_space', 'xy')
 
     def get_I(self, data):
         I = data['intensity']
@@ -56,7 +118,7 @@ class Dataset_PairedImage_Custom(data.Dataset):
         return I
     def get_chroma(self, data):
         col = data['color']
-        chroma = col2num[col]
+        chroma = col2uv[col] if self.chroma_space == 'uv' else col2num[col]
         return torch.tensor(chroma, dtype=torch.float32)
     
     def prepare_item(self, data):
@@ -157,6 +219,7 @@ class Dataset_PairedImage_Custom_Correct(data.Dataset):
 
         self.return_I = opt['return_I']
         self.return_chroma = opt.get('return_chroma', False)
+        self.chroma_space = opt.get('chroma_space', 'xy')
 
 
     def get_I(self, data):
@@ -173,7 +236,7 @@ class Dataset_PairedImage_Custom_Correct(data.Dataset):
     
     def get_chroma(self, data):
         col = data['color']
-        chroma = col2num[col]
+        chroma = col2uv[col] if self.chroma_space == 'uv' else col2num[col]
         return torch.tensor(chroma, dtype=torch.float32)
     
     def prepare_item(self, data):
