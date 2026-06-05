@@ -252,9 +252,9 @@ class Dataset_PairedImage_Custom_Correct(data.Dataset):
         # gt_path = data['gt_path']
         # img_bytes = self.file_client.get(gt_path, 'gt')
         
-        if self.curriculum_prob < 1.0 and 'wb_gt_path' in data and random.random():
+        if 'wb_gt_path' in data and random.random() > self.curriculum_prob:
             gt_path = data['wb_gt_path']
-        
+
         else:
             gt_path = data['gt_path']
         
