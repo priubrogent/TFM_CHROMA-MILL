@@ -58,6 +58,9 @@ class TripletModel(ImageCleanModel):
             if isinstance(v, torch.Tensor):
                 self.neg[k] = v.to(self.device)
 
+        # NEW CURRICULUM: expose anchor's wb_mask on self so compute_loss can use it
+        self.wb_mask = self.anchor.get('wb_mask', None)
+
 
     def feed_data(self, data):
         super().feed_data(data)

@@ -12,7 +12,7 @@ from os import path as osp
 
 from data import create_dataloader, create_dataset
 from data.data_sampler import EnlargedSampler
-from data.data_util import collate_fn
+from data.data_util import collate_fn, getIntensityV  # NEW CURRICULUM
 from data.transforms import RandomBatchCrop
 from data.prefetch_dataloader import CPUPrefetcher, CUDAPrefetcher
 from models import create_model
@@ -115,19 +115,27 @@ def validate(model, val_loader, current_iter, tb_logger, opt, best_metric, epoch
     
     return current_metric, loss2log, best_metric
 
-def compute_curriculum_prob(epoch, total_epochs, opt):
+# NEW CURRICULUM: replaces compute_curriculum_prob with intensity-level-based scheduler.
+# At start_epoch the highest intensity level switches to combined GT.
+# Every `patience` epochs the next-highest level is added, until all levels use combined GT.
+def compute_combined_intensity_levels(epoch, opt):
     cfg = opt.get("curriculum", {})
-    if not cfg.get('enabled', False):
-        return 1.0 # només LLIE
-    start = cfg.get('start_epoch', 0)
-    end = cfg.get('end_epoch', total_epochs)
+    i2use = opt['datasets']['train'].get('i2use', 'all')
+    all_levels = sorted(getIntensityV[i2use.lower()])  # ascending
 
-    if epoch <= start: return 0.0
-    if epoch >= end: return 1.0
-    t = (epoch - start) / (end - start)
-    if cfg.get('schedule', 'linear') == 'cosine':
-        t = 0.5 * (1 - math.cos(math.pi * t))
-    return t
+    if not cfg.get('enabled', False):
+        return set(all_levels)  # curriculum disabled: always use combined GT
+
+    start   = cfg.get('start_epoch', 0)
+    patience = cfg.get('patience', 50)
+
+    if epoch < start:
+        return set()  # all samples use WB GT
+
+    levels_desc = list(reversed(all_levels))  # highest first
+    n_combined = min((epoch - start) // patience + 1, len(levels_desc))
+    return set(levels_desc[:n_combined])
+# END NEW CURRICULUM
 
 def create_train_val_dataloader(opt, logger):
     train_loader, val_loader = None, None
@@ -319,16 +327,37 @@ def main():
 
         train_epoch_loss = {}
         train_sampler.set_epoch(epoch)
-        curriculum_prob = compute_curriculum_prob(epoch, total_epochs, opt)
-        if hasattr(train_loader.dataset, 'set_curriculum_prob'):
-            train_loader.dataset.set_curriculum_prob(curriculum_prob)
-        wandb.log({"curriculum_prob": curriculum_prob}, step=current_iter)
+        # NEW CURRICULUM: compute which intensity levels use combined GT this epoch
+        combined_levels = compute_combined_intensity_levels(epoch, opt)
+        wandb.log({"curriculum_n_combined_levels": len(combined_levels)}, step=current_iter)
+        # END NEW CURRICULUM
         prefetcher.reset()
         train_data = prefetcher.next()
         data2log = {}
         total_mined_triplets = 0
         while train_data is not None:
             data_time = time.time() - data_time
+            # NEW CURRICULUM: select gt per sample based on intensity level
+            def _select_gt(sub):
+                """Given a dict with gt_wb/gt_combined + intensity_raw, set sub['gt'].
+                Also sets sub['wb_mask'] ([B] bool, True = this sample uses WB GT)."""
+                mask = torch.tensor(
+                    [int(i.item()) in combined_levels for i in sub['intensity_raw']],
+                    dtype=torch.float32
+                ).view(-1, 1, 1, 1)
+                sub['gt'] = mask * sub['gt_combined'] + (1 - mask) * sub['gt_wb']
+                # NEW CURRICULUM: wb_mask tells the model which samples use WB GT (XY-only loss)
+                sub['wb_mask'] = (mask.squeeze(dim=[1, 2, 3]) == 0)  # [B] bool
+
+            if 'gt_wb' in train_data and 'gt_combined' in train_data:
+                # non-triplet batch
+                _select_gt(train_data)
+            elif 'anchor' in train_data:
+                # triplet batch — set gt in each sub-dict
+                for part in ('anchor', 'positive', 'negative'):
+                    if 'gt_wb' in train_data[part] and 'gt_combined' in train_data[part]:
+                        _select_gt(train_data[part])
+            # END NEW CURRICULUM
             iter_time, data_time = train_batch(model, train_data, current_iter, opt, train_epoch_loss, epoch, iter_time, data_time, msg_logger, logger)
             train_data = prefetcher.next()
             current_iter += 1

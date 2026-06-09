@@ -211,10 +211,25 @@ def collate_fn(batch, transform=None, phase='train'):
                     out[name][key] = temp
                 
             if transform is not None and phase == 'train':
-                if name == "anchor" or name == "positive":
-                    out[name]["lq"], out[name]["gt"] = transform(out[name]["lq"], out[name]["gt"], x, y)
-                else: 
-                    out[name]["lq"], out[name]["gt"] = transform(out[name]["lq"], out[name]["gt"])
+                # NEW CURRICULUM: triplet sub-dicts now have gt_wb/gt_combined instead of gt
+                sub = out[name]
+                if 'gt_wb' in sub and 'gt_combined' in sub:
+                    B = sub['lq'].shape[0]
+                    lq_doubled = torch.cat([sub['lq'], sub['lq']], dim=0)
+                    gt_all     = torch.cat([sub['gt_wb'], sub['gt_combined']], dim=0)
+                    if name == "anchor" or name == "positive":
+                        lq_out, gt_out = transform(lq_doubled, gt_all, x, y)
+                    else:
+                        lq_out, gt_out = transform(lq_doubled, gt_all)
+                    sub['lq']          = lq_out[:B]
+                    sub['gt_wb']       = gt_out[:B]
+                    sub['gt_combined'] = gt_out[B:]
+                else:
+                    if name == "anchor" or name == "positive":
+                        sub["lq"], sub["gt"] = transform(sub["lq"], sub["gt"], x, y)
+                    else:
+                        sub["lq"], sub["gt"] = transform(sub["lq"], sub["gt"])
+                # END NEW CURRICULUM
     else: 
         for key in batch[0].keys():
             if isinstance(batch[0][key], str):
@@ -225,15 +240,20 @@ def collate_fn(batch, transform=None, phase='train'):
                 out[key] = torch.stack([b[key] for b in batch], dim=0)
 
         if transform is not None and phase == 'train':
-            # fig, ax = plt.subplots(1, 2)
-
-            # out_plot = (out["lq"].clone() + 1) / 2 
-
-            # ax[0].imshow(out_plot[0, :, :, :].permute(1, 2, 0))
-            # ax[1].imshow(out_plot[1, :, :, :].permute(1, 2, 0))
-            # plt.savefig("test1.png")
-
-            out["lq"], out["gt"] = transform(out["lq"], out["gt"])
+            # NEW CURRICULUM: gt_wb and gt_combined must receive the identical random
+            # crop and augmentation as lq. We achieve this by doubling the batch so
+            # RandomBatchCrop draws one (x, y, mode) that is applied to all images.
+            if 'gt_wb' in out and 'gt_combined' in out:
+                B = out['lq'].shape[0]
+                lq_doubled = torch.cat([out['lq'], out['lq']], dim=0)
+                gt_all     = torch.cat([out['gt_wb'], out['gt_combined']], dim=0)
+                lq_out, gt_out = transform(lq_doubled, gt_all)
+                out['lq']          = lq_out[:B]
+                out['gt_wb']       = gt_out[:B]
+                out['gt_combined'] = gt_out[B:]
+            else:
+                out["lq"], out["gt"] = transform(out["lq"], out["gt"])
+            # END NEW CURRICULUM
         # print(out["lq_path"])
 
     return out

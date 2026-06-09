@@ -28,6 +28,23 @@ from torchvision import utils as vutils
 
 import wandb
 
+# NEW CURRICULUM: sRGB linear → CIE XYZ (D65) matrix.
+# Images are linear so no gamma correction needed before applying this.
+_RGB_TO_XYZ = torch.tensor([
+    [0.4124564, 0.3575761, 0.1804375],
+    [0.2126729, 0.7151522, 0.0721750],
+    [0.0193339, 0.1191920, 0.9503041],
+], dtype=torch.float32)
+
+def rgb_to_xyz(img):
+    """Convert a linear-RGB batch [B,3,H,W] to CIE XYZ."""
+    m = _RGB_TO_XYZ.to(img.device)           # [3,3]
+    B, C, H, W = img.shape
+    flat = img.reshape(B, 3, -1)              # [B,3,H*W]
+    xyz  = torch.einsum('ij,bjk->bik', m, flat)  # [B,3,H*W]
+    return xyz.reshape(B, 3, H, W)
+# END NEW CURRICULUM
+
 
 def _diff_to_viridis(gt_chw, pred_chw):
     """Absolute per-channel mean error mapped to viridis colormap. Returns 3×H×W float32 tensor."""
@@ -173,6 +190,10 @@ class ImageCleanModel(BaseModel):
 
         self.lq_path = data['lq_path']
 
+        # NEW CURRICULUM: wb_mask is True for samples using WB GT (XY-only loss)
+        self.wb_mask = data.get('wb_mask', None)
+        # END NEW CURRICULUM
+
         try:
             self.lq_gamma = data['lq_img_gamma']
             self.lq_original = data['lq_original']
@@ -185,6 +206,7 @@ class ImageCleanModel(BaseModel):
         if 'gt' in data:
             self.gt = data['gt'].to(self.device)
         self.lq_path = data['lq_path']
+        self.wb_mask = None  # NEW CURRICULUM: validation always uses full 3-channel XYZ loss
 
         try:
             self.I = data['I'].to(self.device)
@@ -516,20 +538,56 @@ class ImageCleanModel(BaseModel):
 
     def compute_loss(self, gt, preds, return_loss_all=False, I=None, miner=None, chroma_gt=None):
         loss_dict = OrderedDict()
-        
+
         if not isinstance(preds, list):
             preds = [preds]
-        
+
+        # NEW CURRICULUM: pixel loss is computed in XYZ space.
+        # For WB samples (self.wb_mask == True): only X and Y channels are used
+        # (Z is zeroed in both pred and GT), and the mean is over 2 channels.
+        # For combined samples: all 3 XYZ channels are used.
+        # At validation time wb_mask is None → full 3-channel XYZ loss.
+        wb_mask = getattr(self, 'wb_mask', None)
+
+        def _xyz_loss(pred, gt_img):
+            pred_xyz = rgb_to_xyz(pred)
+            gt_xyz   = rgb_to_xyz(gt_img)
+
+            if wb_mask is None or not wb_mask.any():
+                # All samples use full 3-channel XYZ loss
+                return self.cri_pix(pred_xyz, gt_xyz)
+
+            wb  = wb_mask.to(pred.device)
+            comb = ~wb
+            loss = torch.tensor(0.0, device=pred.device)
+
+            if wb.any():
+                # 2-channel (X, Y only) loss for WB samples
+                loss = loss + F.mse_loss(
+                    pred_xyz[wb, :2, :, :],
+                    gt_xyz  [wb, :2, :, :],
+                ) * wb.sum()
+
+            if comb.any():
+                # 3-channel (X, Y, Z) loss for combined samples
+                loss = loss + F.mse_loss(
+                    pred_xyz[comb, :, :, :],
+                    gt_xyz  [comb, :, :, :],
+                ) * comb.sum()
+
+            return loss / wb_mask.shape[0]   # mean across batch
+        # END NEW CURRICULUM
+
         l_pix = 0.
         if self.opt["train"]["losses"].get("weight_l1", False) and I is not None:
             for pred, i in zip(preds, I):
                 weight_l1 = (1 - i)
-                l_pix += self.cri_pix(pred, gt) * (weight_l1) * self.opt["train"]["losses"].get("l_pix", 1)
+                l_pix += _xyz_loss(pred, gt) * (weight_l1) * self.opt["train"]["losses"].get("l_pix", 1)
         else:
             for pred in preds:
-                l_pix += self.cri_pix(pred, gt)
+                l_pix += _xyz_loss(pred, gt)
 
-        loss_dict['l_pix'] = l_pix  * self.opt["train"]["losses"].get("l_pix", 1)
+        loss_dict['l_pix'] = l_pix * self.opt["train"]["losses"].get("l_pix", 1)
             
         if self.opt["datasets"]["train"]["pred_I"]:
             if I is None:

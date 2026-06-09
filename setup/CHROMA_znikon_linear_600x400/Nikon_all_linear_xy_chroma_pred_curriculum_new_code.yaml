@@ -98,7 +98,7 @@ network_g:
   use_prior: true
 
 path:
-  pretrain_network_g: ~
+  pretrain_network_g: /home/priubrogent/00_PROJECTS/03_TFM/CHROMA-MILL/runs/CHROMA_znikon_linear_600x400/Nikon_all_linear_xy_chroma_pred_curriculum_test/weights/net_g_30000.pth
   strict_load_g: true
   resume_state: null
 
@@ -174,12 +174,14 @@ gpu_id: [0]
 wandb:
   project: CHROMA-MILL-Retinexformer
   entity: tfm-priubrogent
-  resume: ~            
-  id: ~
+  resume: must            
+  id: glewgp0m
 
 
+# NEW CURRICULUM: intensity-level-based curriculum schedule
+# start_epoch: epoch at which the highest intensity level switches to combined GT
+# patience: epochs between each additional level switching to combined GT
 curriculum:
   enabled: true
-  start_epoch: 50
-  end_epoch: 500      
-  schedule: linear
+  start_epoch: 10
+  patience: 100

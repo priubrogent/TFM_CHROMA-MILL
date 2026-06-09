@@ -220,10 +220,7 @@ class Dataset_PairedImage_Custom_Correct(data.Dataset):
         self.return_I = opt['return_I']
         self.return_chroma = opt.get('return_chroma', False)
         self.chroma_space = opt.get('chroma_space', 'xy')
-        self.curriculum_prob = 1.0
-
-    def set_curriculum_prob(self, p):
-        self.curriculum_prob = p
+        # NEW CURRICULUM: GT selection is now done in the training loop, not here
 
     def get_I(self, data):
         I = data['intensity']
@@ -249,22 +246,6 @@ class Dataset_PairedImage_Custom_Correct(data.Dataset):
 
         scale = self.opt['scale']
 
-        # gt_path = data['gt_path']
-        # img_bytes = self.file_client.get(gt_path, 'gt')
-        
-        if self.curriculum_prob < 1.0 and 'wb_gt_path' in data and random.random():
-            gt_path = data['wb_gt_path']
-        
-        else:
-            gt_path = data['gt_path']
-        
-        img_bytes = self.file_client.get(gt_path, 'gt')
-
-        try:
-            img_gt = imfrombytes(img_bytes, float32=True)
-        except:
-            raise Exception("gt path {} not working".format(gt_path))
-
         lq_path = data['lq_path']
         img_bytes = self.file_client.get(lq_path, 'lq')
         try:
@@ -272,53 +253,66 @@ class Dataset_PairedImage_Custom_Correct(data.Dataset):
         except:
             raise Exception("lq path {} not working".format(lq_path))
 
+        # NEW CURRICULUM: load both GTs so the training loop can select per sample
+        wb_gt_path = data['wb_gt_path']
+        img_bytes = self.file_client.get(wb_gt_path, 'gt')
+        try:
+            img_gt_wb = imfrombytes(img_bytes, float32=True)
+        except:
+            raise Exception("wb_gt path {} not working".format(wb_gt_path))
+
+        combined_gt_path = data['llie_gt_path']
+        img_bytes = self.file_client.get(combined_gt_path, 'gt')
+        try:
+            img_gt_combined = imfrombytes(img_bytes, float32=True)
+        except:
+            raise Exception("combined gt path {} not working".format(combined_gt_path))
+        # END NEW CURRICULUM
+
         # use pytorch transform to resize the image to 6000x4000 at max
-        if img_gt.shape[0] > 6000 or img_gt.shape[1] > 4000:
-            img_gt = cv2.resize(img_gt, (3000, 2000), interpolation=cv2.INTER_CUBIC) # INTER_NEAREST)
-            img_lq = cv2.resize(img_lq, (3000, 2000), interpolation=cv2.INTER_CUBIC) # INTER_NEAREST)
+        if img_gt_combined.shape[0] > 6000 or img_gt_combined.shape[1] > 4000:
+            img_gt_wb       = cv2.resize(img_gt_wb,       (3000, 2000), interpolation=cv2.INTER_CUBIC)
+            img_gt_combined = cv2.resize(img_gt_combined, (3000, 2000), interpolation=cv2.INTER_CUBIC)
+            img_lq          = cv2.resize(img_lq,          (3000, 2000), interpolation=cv2.INTER_CUBIC)
 
         if self.opt['phase'] == 'train':
             gt_size = self.opt['gt_size']
-            # padding
-            img_gt, img_lq = padding(img_gt, img_lq, gt_size)
+            # NEW CURRICULUM: pad all three together (lq drives padding size)
+            img_gt_wb,      img_lq  = padding(img_gt_wb,      img_lq, gt_size)
+            img_gt_combined, _      = padding(img_gt_combined, img_lq, gt_size)
 
-        img_gt, img_lq = img2tensor([img_gt, img_lq],
-                                    bgr2rgb=True,
-                                    float32=True)
+        # NEW CURRICULUM: convert all three to tensors
+        img_gt_wb, img_gt_combined, img_lq = img2tensor(
+            [img_gt_wb, img_gt_combined, img_lq], bgr2rgb=True, float32=True)
 
         if self.opt["gamma_in"] != self.opt["gamma_train"]:
-            img_lq = adjust_gamma(img_lq, 1/2.2)
-            img_gt = adjust_gamma(img_gt, 1/2.2)
+            img_lq          = adjust_gamma(img_lq,          1/2.2)
+            img_gt_wb       = adjust_gamma(img_gt_wb,       1/2.2)
+            img_gt_combined = adjust_gamma(img_gt_combined, 1/2.2)
 
+        # NEW CURRICULUM: return gt_wb and gt_combined separately; training loop picks which to use
+        d2return = {
+            'lq':          img_lq,
+            'gt_wb':       img_gt_wb,
+            'gt_combined': img_gt_combined,
+            'lq_path':     lq_path,
+            'gt_path':     combined_gt_path,
+            'intensity_raw': data['intensity'],  # NEW CURRICULUM: raw int, used for level-based GT selection
+        }
 
-        # print("max(img_lq):", img_lq.max(), "min(img_lq):", img_lq.min())
-        # print("max(img_gt):", img_gt.max(), "min(img_gt):", img_gt.min())
-        # if self.mean is not None or self.std is not None:
-        #     normalize(img_lq, self.mean, self.std, inplace=True)
-        #     normalize(img_gt, self.mean, self.std, inplace=True)
-
-
-
-        # print("img_lq.shape:", img_lq.shape, "img_gt.shape:", img_gt.shape)
-
-        d2return = {'lq': img_lq, 'gt': img_gt, 'lq_path': lq_path, 'gt_path': gt_path}
-        
         if self.return_I:
             if self.ourDS:
                 I = self.get_I(data)
                 d2return['I'] = I
             else:
                 d2return['I'] = 40/1861
-        
+
         if self.return_chroma:
             if self.ourDS:
                 chroma = self.get_chroma(data)
                 d2return['chroma_gt'] = chroma
             else:
                 d2return['chroma_gt'] = 0.5
-        return d2return
-
-
         return d2return
 
     def __getitem__(self, index):
