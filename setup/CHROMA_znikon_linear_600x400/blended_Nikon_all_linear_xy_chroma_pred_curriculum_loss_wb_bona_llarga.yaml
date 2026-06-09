@@ -4,7 +4,7 @@ scale: 1
 num_gpu: 1
 
 datasets:
-  root: /data/storage/users/priubrogent/Lowlight-datasets/OURdataset_linear/nikon_combinations/
+  root: /home/ramon/TFM_POL/OURdataset_linear/nikon_combinations
   train:
     name: TrainSet
     type: Triplet
@@ -17,10 +17,10 @@ datasets:
       type: disk
     
     use_shuffle: true
-    batch_size_per_gpu: 16
-    num_worker_per_gpu: 4
+    batch_size_per_gpu: 48
+    num_worker_per_gpu: 8
     
-    total_epochs: 1000
+    total_epochs: 4500
     gt_size: 128
     gt_sizes: [128]
 
@@ -110,7 +110,7 @@ network_g:
   use_prior: true
 
 path:
-  pretrain_network_g: null
+  pretrain_network_g: ~
   strict_load_g: true
   resume_state: null
 
@@ -186,7 +186,14 @@ gpu_id: [0]
 wandb:
   project: CHROMA-MILL-Retinexformer
   entity: tfm-priubrogent
-  resume: ~            
+  resume: ~           
   id: ~
 
 
+# NEW CURRICULUM: intensity-level-based curriculum schedule
+# start_epoch: epoch at which the highest intensity level switches to combined GT
+# patience: epochs between each additional level switching to combined GT
+curriculum:
+  enabled: true
+  start_epoch: 1000
+  patience: 300

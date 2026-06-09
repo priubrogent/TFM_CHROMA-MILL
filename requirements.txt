@@ -1,0 +1,32 @@
+# Core
+torch==2.7.0
+torchvision==0.22.0
+numpy==2.4.2
+
+# Image processing
+opencv-python==4.11.0.86
+pillow==12.1.1
+scikit-image==0.25.2
+
+# Data & config
+h5py
+lmdb==2.2.0
+pandas==2.2.3
+PyYAML==6.0.2
+natsort==8.4.0
+
+# ML utilities
+einops==0.8.2
+basicsr
+pyiqa==0.1.15.post2
+pytorch-metric-learning==2.9.0
+torchsummary==1.5.1
+scipy==1.17.1
+
+# Visualization & logging
+matplotlib==3.10.8
+wandb==0.21.0
+tqdm==4.67.1
+
+# Misc
+requests==2.32.3
