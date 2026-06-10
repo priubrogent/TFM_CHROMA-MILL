@@ -12,7 +12,7 @@ from models.archs.RetinexFormer_arch import *
 
 
 class Denoiser_emb(nn.Module):
-    def __init__(self, in_dim=3, out_dim=3, dim=31, level=2, num_blocks=[2, 4, 4]):
+    def __init__(self, in_dim=3, out_dim=3, dim=31, level=2, num_blocks=[2, 4, 4], mlp_intensity = False):
         super(Denoiser_emb, self).__init__()
         self.dim = dim
         self.level = level
@@ -60,6 +60,19 @@ class Denoiser_emb(nn.Module):
 
         self.embedding_done = None
 
+        # MLP intensity prediction from embedding (bottleneck features minus first 3 channels)
+        self.intensity_mlp = None
+        if mlp_intensity:
+            bottleneck_dim = dim * (2 ** level)  # channels at bottleneck
+            emb_dim = bottleneck_dim - 3          # embedding = bottleneck minus illu(1) + chroma(2)
+            self.intensity_mlp = nn.Sequential(
+                nn.AdaptiveAvgPool2d(1),
+                nn.Flatten(),
+                nn.Linear(emb_dim, emb_dim // 2),
+                nn.ReLU(),
+                nn.Linear(emb_dim // 2, 1),
+            )
+
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
@@ -102,8 +115,14 @@ class Denoiser_emb(nn.Module):
             # fea[:,0:1,:,:] = torch.ones_like(fea[:,0:1,:,:]) * I.unsqueeze(1).unsqueeze(1).unsqueeze(1).to(fea.device)
             chroma_pred = fea[:, 1:3, :, :].clone() # CHROMA-MILL
             self.embedding_done = fea[:, 3:, :, :].clone()
+            illu_pred_mlp = None
+            if self.intensity_mlp is not None:
+                illu_pred_mlp = self.intensity_mlp(self.embedding_done).squeeze(-1) # [Bs]
+                # print("illu_pred_mlp.shape:", illu_pred_mlp.shape)
+                # stx()
         except:
             self.embedding_done = fea.clone()
+            illu_pred_mlp = None
 
         # Decoder
         for i, (FeaUpSample, Fution, LeWinBlcok) in enumerate(self.decoder_layers):
@@ -116,22 +135,22 @@ class Denoiser_emb(nn.Module):
         # Mapping
         out = self.mapping(fea) + x
 
-        return out, illu_pred, chroma_pred
+        return out, illu_pred, chroma_pred, illu_pred_mlp
 
     def getEmbedding(self):
         return self.embedding_done
 
 class RetinexFormer_Single_Stage_Emb(nn.Module):
-    def __init__(self, in_channels=3, out_channels=3, n_feat=31, level=2, num_blocks=[1, 1, 1], use_prior=True, I = 0, use_I = False, use_he = False):
+    def __init__(self, in_channels=3, out_channels=3, n_feat=31, level=2, num_blocks=[1, 1, 1], use_prior=True, I = 0, use_I = False, use_he = False, mlp_intensity = False):
         super(RetinexFormer_Single_Stage_Emb, self).__init__()
         self.estimator = Illumination_Estimator(n_feat, use_prior = use_prior, I = I, use_I = use_I, use_he = use_he)
-        self.denoiser = Denoiser_emb(in_dim=in_channels,out_dim=out_channels,dim=n_feat,level=level,num_blocks=num_blocks)  #### 将 Denoiser 改为 img2img
-    
+        self.denoiser = Denoiser_emb(in_dim=in_channels,out_dim=out_channels,dim=n_feat,level=level,num_blocks=num_blocks, mlp_intensity = mlp_intensity)  #### 将 Denoiser 改为 img2img
+
     def forward(self, img):
         # img:        b,c=3,h,w
         
         # illu_fea:   b,c,h,w
-        # illu_map:   b,c=3,h,w
+        # illu_map:   b,c=3,h,w 
 
         if type(img) is tuple:
             img, I = img
@@ -141,19 +160,19 @@ class RetinexFormer_Single_Stage_Emb(nn.Module):
         # print("img.shape:", img.shape, "I.shape:", I)
         illu_fea, illu_map, intensity = self.estimator(img, I = I)
         input_img = img # * illu_map + img
-        output_img, illu_pred, chroma_pred = self.denoiser(input_img, illu_fea, I = I, I_pred = intensity)
+        output_img, illu_pred, chroma_pred, illu_pred_mlp = self.denoiser(input_img, illu_fea, I = I, I_pred = intensity)
 
         embedding = self.denoiser.getEmbedding()
 
-        return output_img, illu_pred, chroma_pred, embedding
+        return output_img, illu_pred, chroma_pred, embedding, illu_pred_mlp
 
 
 class RetinexFormerEmb(nn.Module):
-    def __init__(self, in_channels=3, out_channels=3, n_feat=31, stage=3, num_blocks=[1,1,1], use_prior=True, I = 0, use_I = False, use_he = False):
+    def __init__(self, in_channels=3, out_channels=3, n_feat=31, stage=3, num_blocks=[1,1,1], use_prior=True, I = 0, use_I = False, use_he = False, mlp_intensity = False):
         super(RetinexFormerEmb, self).__init__()
         self.stage = stage
 
-        modules_body = [RetinexFormer_Single_Stage_Emb(in_channels=in_channels, out_channels=out_channels, n_feat=n_feat, level=2, num_blocks=num_blocks, use_prior=use_prior, I = I, use_I = use_I, use_he = use_he)
+        modules_body = [RetinexFormer_Single_Stage_Emb(in_channels=in_channels, out_channels=out_channels, n_feat=n_feat, level=2, num_blocks=num_blocks, use_prior=use_prior, I = I, use_I = use_I, use_he = use_he, mlp_intensity = mlp_intensity)
                         for _ in range(stage)]
         
         self.body = nn.Sequential(*modules_body)
@@ -163,9 +182,9 @@ class RetinexFormerEmb(nn.Module):
         x: [b,c,h,w]
         return out:[b,c,h,w]
         """
-        out, illu_pred, chroma_pred, embedding = self.body((x, I))
+        out, illu_pred, chroma_pred, embedding, illu_pred_mlp = self.body((x, I))
 
-        return out, illu_pred, chroma_pred, embedding
+        return out, illu_pred, chroma_pred, embedding, illu_pred_mlp
 
 
 # if __name__ == '__main__':
