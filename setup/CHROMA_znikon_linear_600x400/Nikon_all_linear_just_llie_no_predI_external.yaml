@@ -34,8 +34,6 @@ datasets:
     pred_I: true
     pred_chroma: true
     Ifrom: sensors
-    mlp_intensity: true
-
     gamma_in: 1
     gamma_train: 1
     gamma_out: 1
@@ -98,6 +96,7 @@ network_g:
   stage: 1
   num_blocks: [1,2,2]
   use_prior: true
+  mlp_intensity: true
 
 path:
   pretrain_network_g: null
