@@ -91,6 +91,11 @@ class TripletModel(ImageCleanModel):
 
         self.output = preds[-1]
 
+        # Optional: correct image brightness using predicted intensity before loss
+        if self.opt["train"]["losses"].get("correct_intensity", False) and self.illu_pred_mlp is not None:
+            gain = 1.0 / (self.illu_pred_mlp.view(-1, 1, 1, 1) + 1e-6)
+            preds = [torch.clamp(p * gain, 0.0, 1.0) for p in preds]
+
         loss_dict, loss_all = self.compute_loss(self.anchor["gt"], preds, embedding, embedding_pos, embedding_neg, return_loss_all=True)
         loss_all.backward()
 
