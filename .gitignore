@@ -1,4 +1,6 @@
 __pycache__
 wandb
 runs
-
+.vscode
+*.csv
+inspect_embedding.py

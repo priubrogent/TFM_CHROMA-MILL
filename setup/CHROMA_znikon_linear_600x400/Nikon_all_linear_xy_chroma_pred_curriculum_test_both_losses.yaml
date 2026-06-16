@@ -130,9 +130,9 @@ train:
 
   losses:
     l_sd: 0
-    l_m: 0
-    l_tr: 0
-    l_chroma: 0
+    l_m: 1
+    l_tr: 1
+    l_chroma: 1
 
 val:
   window_size: 4
