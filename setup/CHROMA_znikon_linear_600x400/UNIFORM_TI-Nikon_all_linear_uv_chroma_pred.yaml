@@ -4,7 +4,7 @@ scale: 1
 num_gpu: 1
 
 datasets:
-  root: /data/storage/datasets/Lowlight-datasets/OURdataset_linear/nikon/
+  root: /home/ramon/TFM_POL/OURdataset_linear/nikon_combinations/
   train:
     name: TrainSet
     type: Triplet
