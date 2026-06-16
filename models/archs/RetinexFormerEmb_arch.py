@@ -96,22 +96,21 @@ class Denoiser_emb(nn.Module):
         # Bottleneck
         fea = self.bottleneck(fea, illu_fea, I_pred)
 
-        # try:
-        #     # OUR ADDITION: change the illu_fea last channel for a channel of ones * lamda
-        #     illu_pred = fea[:,0:1,:,:].clone()
-        #     # fea[:,0:1,:,:] = torch.ones_like(fea[:,0:1,:,:]) * I.unsqueeze(1).unsqueeze(1).unsqueeze(1).to(fea.device)
-        #     chroma_pred = fea[:, 1:3, :, :].clone() # CHROMA-MILL
-        #     self.embedding_done = fea[:, 3:, :, :].clone()
-        # except:
-        #     self.embedding_done = fea.clone()
+        try:
+            # OUR ADDITION: change the illu_fea last channel for a channel of ones * lamda
+            illu_pred = fea[:,0:1,:,:].clone()
+            # fea[:,0:1,:,:] = torch.ones_like(fea[:,0:1,:,:]) * I.unsqueeze(1).unsqueeze(1).unsqueeze(1).to(fea.device)
+            chroma_pred = fea[:, 1:3, :, :].clone() # CHROMA-MILL
+            self.embedding_done = fea[:, 3:, :, :].clone()
+        except:
+            self.embedding_done = fea.clone()
 
-        illu_pred = fea[:, 0:1, :, :].mean(dim=(2,3), keepdim=True)
-        chroma_pred = fea[:, 1:3, :, :].mean(dim=(2,3), keepdim=True)
-
-        fea[:, 0:1, :, :] = illu_pred.expand_as(fea[:, 0:1, :, :])
-        fea[:, 1:3, :, :] = chroma_pred.expand_as(fea[:, 1:3, :, :])
-
-        self.embedding_done = fea[:, 3:, :, :].clone()
+        # # Force spatial uniformity in forward pass (use as loss instead)
+        # illu_pred = fea[:, 0:1, :, :].mean(dim=(2,3), keepdim=True)
+        # chroma_pred = fea[:, 1:3, :, :].mean(dim=(2,3), keepdim=True)
+        # fea[:, 0:1, :, :] = illu_pred.expand_as(fea[:, 0:1, :, :])
+        # fea[:, 1:3, :, :] = chroma_pred.expand_as(fea[:, 1:3, :, :])
+        # self.embedding_done = fea[:, 3:, :, :].clone()
 
 
         # Decoder

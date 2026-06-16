@@ -133,6 +133,7 @@ train:
     l_m: 1
     l_tr: 1
     l_chroma: 1
+    l_chroma_uniform: 1
 
 val:
   window_size: 4
