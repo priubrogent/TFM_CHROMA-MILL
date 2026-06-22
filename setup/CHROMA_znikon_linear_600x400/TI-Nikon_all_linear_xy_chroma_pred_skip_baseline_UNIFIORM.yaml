@@ -175,7 +175,7 @@ gpu_id: [0]
 wandb:
   project: CHROMA-MILL-Retinexformer
   entity: tfm-priubrogent
-  resume: ~            
-  id: ~
+  resume: must            
+  id: fpesvsw6
 
 

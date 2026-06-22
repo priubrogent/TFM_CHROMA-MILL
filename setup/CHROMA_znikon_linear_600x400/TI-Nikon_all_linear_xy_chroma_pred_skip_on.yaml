@@ -20,7 +20,7 @@ datasets:
     batch_size_per_gpu: 32
     num_worker_per_gpu: 8
     
-    total_epochs: 1000
+    total_epochs: 2000
     gt_size: 128
     gt_sizes: [128]
 
@@ -176,7 +176,7 @@ gpu_id: [0]
 wandb:
   project: CHROMA-MILL-Retinexformer
   entity: tfm-priubrogent
-  resume: ~            
-  id: ~
+  resume: must            
+  id: jssmbewf
 
 
