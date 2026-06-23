@@ -89,14 +89,31 @@ class TripletModel(ImageCleanModel):
         if not isinstance(preds, list):
             preds = [preds]
 
-        self.output = preds[-1]
+        self.output_decoder = preds[-1]  # decoder output before gain (for visualization)
+
+        # Reconstruction loss: decoder output (before gain) should match the input image
+        loss_dict = OrderedDict()
+        loss_all = 0
+        if self.l_recon > 0:
+            l_recon = 0
+            for pred in (preds if isinstance(preds, list) else [preds]):
+                l_recon += self.cri_pix(pred, self.anchor["lq"])
+            l_recon = l_recon * self.l_recon
+            loss_dict['l_recon'] = l_recon
+            loss_all += l_recon
 
         # Optional: correct image brightness using predicted intensity before loss
         if self.opt["train"]["losses"].get("correct_intensity", False) and self.illu_pred_mlp is not None:
             gain = 1.0 / (self.illu_pred_mlp.view(-1, 1, 1, 1) + 1e-6)
             preds = [torch.clamp(p * gain, 0.0, 1.0) for p in preds]
 
-        loss_dict, loss_all = self.compute_loss(self.anchor["gt"], preds, embedding, embedding_pos, embedding_neg, return_loss_all=True)
+        self.output = preds[-1]  # corrected output (for parent class compatibility)
+        self.output_corrected = preds[-1]  # corrected output (for visualization)
+
+        # Compute remaining losses on corrected predictions
+        loss_dict_main, loss_all_main = self.compute_loss(self.anchor["gt"], preds, embedding, embedding_pos, embedding_neg, return_loss_all=True)
+        loss_dict.update(loss_dict_main)
+        loss_all += loss_all_main
         loss_all.backward()
 
         if self.opt['train']['use_grad_clip']:
@@ -128,6 +145,20 @@ class TripletModel(ImageCleanModel):
             return loss_dict, loss_all
         else:
             return loss_dict
+
+    def build_train_visual_grid(self, n_rows=5):
+        """Build a wandb-ready grid: input | decoder output | corrected | GT."""
+        if not (hasattr(self, 'output_decoder') and hasattr(self, 'output_corrected') and hasattr(self, 'anchor')):
+            return None
+        lq        = self.anchor["lq"].detach().cpu().clamp(0, 1)
+        decoder   = self.output_decoder.detach().cpu().clamp(0, 1)
+        corrected = self.output_corrected.detach().cpu().clamp(0, 1)
+        gt        = self.anchor["gt"].detach().cpu().clamp(0, 1)
+        n_show = min(n_rows, lq.shape[0])
+        tiles = []
+        for i in range(n_show):
+            tiles += [lq[i], decoder[i], corrected[i], gt[i]]
+        return vutils.make_grid(tiles, nrow=4, padding=4, normalize=False)
 
     def pad_test(self, window_size):
         scale = self.opt.get('scale', 1)

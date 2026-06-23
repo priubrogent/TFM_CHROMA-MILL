@@ -102,11 +102,13 @@ class ImageCleanModel(BaseModel):
             self.l_m = self.opt["train"]["losses"]["l_m"]
             self.l_chroma = self.opt["train"]["losses"].get("l_chroma", 0)
             self.l_mlp_I = self.opt["train"]["losses"].get("l_mlp_I", 0)
+            self.l_recon = self.opt["train"]["losses"].get("l_recon", 0)
         except:
             self.l_sd = 0
             self.l_m = 0
             self.l_chroma = 0
             self.l_mlp_I = 0
+            self.l_recon = 0
 
     def init_training_settings(self):
         self.net_g.train()
@@ -583,7 +585,7 @@ class ImageCleanModel(BaseModel):
                 real_I = self.I
             else:
                 real_I = I
-            mlp_pred = self.illu_pred_mlp  # [B]
+            mlp_pred = self.illu_pred_mlp.view(-1)  # [B]
             real_target = real_I.to(mlp_pred.device).view(-1)  # [B]
             l_mlp_I = F.mse_loss(mlp_pred, real_target) * self.l_mlp_I
             loss_dict['l_mlp_I'] = l_mlp_I

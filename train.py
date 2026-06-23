@@ -341,7 +341,7 @@ def main():
         if epoch % opt['val'].get('log_img_freq', 500) == 0:
             train_grid = model.build_train_visual_grid(n_rows=5)
             if train_grid is not None:
-                wandb.log({"train/visuals": wandb.Image(train_grid, caption='input | pred | GT | diff')}, step=current_iter)
+                wandb.log({"train/visuals": wandb.Image(train_grid)}, step=current_iter)
 
         if opt.get('val') is not None and (epoch % opt['val']['val_freq'] == 0):
             val_metrics, val_epoch_loss, best_metric = validate(model, val_loader, current_iter, tb_logger, opt, best_metric, epoch, log=True)
