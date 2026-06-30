@@ -12,10 +12,11 @@ from models.archs.RetinexFormer_arch import *
 
 
 class Denoiser_emb(nn.Module):
-    def __init__(self, in_dim=3, out_dim=3, dim=31, level=2, num_blocks=[2, 4, 4], mlp_intensity = False):
+    def __init__(self, in_dim=3, out_dim=3, dim=31, level=2, num_blocks=[2, 4, 4], mlp_intensity = False, nodecoder = False):
         super(Denoiser_emb, self).__init__()
         self.dim = dim
         self.level = level
+        self.nodecoder = nodecoder
 
         # Input projection
         self.embedding = nn.Conv2d(in_dim, self.dim, 3, 1, 1, bias=False)
@@ -36,23 +37,20 @@ class Denoiser_emb(nn.Module):
         # print("dim:", dim_level, "dim_head:", dim, "heads:", dim_level // dim, "num_blocks:", num_blocks[-1])
         self.bottleneck = IGAB(dim=dim_level, dim_head=dim, heads=dim_level // dim, num_blocks=num_blocks[-1])
 
+        if not self.nodecoder:
+            # Decoder
+            self.decoder_layers = nn.ModuleList([])
+            for i in range(level):
+                self.decoder_layers.append(nn.ModuleList([
+                    nn.ConvTranspose2d(dim_level, dim_level // 2, stride=2, kernel_size=2, padding=0, output_padding=0),
+                    nn.Conv2d(dim_level, dim_level // 2, 1, 1, bias=False),
+                    IGAB(dim=dim_level // 2, num_blocks=num_blocks[level - 1 - i], dim_head=dim, heads=(dim_level // 2) // dim),
+                ]))
 
-        # Decoder
-        self.decoder_layers = nn.ModuleList([])
-        for i in range(level):
-            # if i == 0:
-            #     dim_level = dim_level + 1
-            
-            self.decoder_layers.append(nn.ModuleList([
-                nn.ConvTranspose2d(dim_level, dim_level // 2, stride=2, kernel_size=2, padding=0, output_padding=0),
-                nn.Conv2d(dim_level, dim_level // 2, 1, 1, bias=False),
-                IGAB(dim=dim_level // 2, num_blocks=num_blocks[level - 1 - i], dim_head=dim, heads=(dim_level // 2) // dim),
-            ]))
+                dim_level //= 2
 
-            dim_level //= 2
-
-        # Output projection
-        self.mapping = nn.Conv2d(self.dim, out_dim, 3, 1, 1, bias=False)
+            # Output projection
+            self.mapping = nn.Conv2d(self.dim, out_dim, 3, 1, 1, bias=False)
 
         # activation function
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
@@ -124,16 +122,20 @@ class Denoiser_emb(nn.Module):
             self.embedding_done = fea.clone()
             illu_pred_mlp = None
 
-        # Decoder
-        for i, (FeaUpSample, Fution, LeWinBlcok) in enumerate(self.decoder_layers):
-            fea = FeaUpSample(fea)
-            fea = Fution(
-                torch.cat([fea, fea_encoder[self.level - 1 - i]], dim=1))
-            illu_fea = illu_fea_list[self.level-1-i]
-            fea = LeWinBlcok(fea, illu_fea, I_pred)
+        if self.nodecoder:
+            # No decoder: output is just the input image (correction applied externally via gain)
+            out = x
+        else:
+            # Decoder
+            for i, (FeaUpSample, Fution, LeWinBlcok) in enumerate(self.decoder_layers):
+                fea = FeaUpSample(fea)
+                fea = Fution(
+                    torch.cat([fea, fea_encoder[self.level - 1 - i]], dim=1))
+                illu_fea = illu_fea_list[self.level-1-i]
+                fea = LeWinBlcok(fea, illu_fea, I_pred)
 
-        # Mapping
-        out = self.mapping(fea) + x
+            # Mapping
+            out = self.mapping(fea) + x
 
         return out, illu_pred, chroma_pred, illu_pred_mlp
 
@@ -141,10 +143,10 @@ class Denoiser_emb(nn.Module):
         return self.embedding_done
 
 class RetinexFormer_Single_Stage_Emb(nn.Module):
-    def __init__(self, in_channels=3, out_channels=3, n_feat=31, level=2, num_blocks=[1, 1, 1], use_prior=True, I = 0, use_I = False, use_he = False, mlp_intensity = False):
+    def __init__(self, in_channels=3, out_channels=3, n_feat=31, level=2, num_blocks=[1, 1, 1], use_prior=True, I = 0, use_I = False, use_he = False, mlp_intensity = False, nodecoder = False):
         super(RetinexFormer_Single_Stage_Emb, self).__init__()
         self.estimator = Illumination_Estimator(n_feat, use_prior = use_prior, I = I, use_I = use_I, use_he = use_he)
-        self.denoiser = Denoiser_emb(in_dim=in_channels,out_dim=out_channels,dim=n_feat,level=level,num_blocks=num_blocks, mlp_intensity = mlp_intensity)  #### 将 Denoiser 改为 img2img
+        self.denoiser = Denoiser_emb(in_dim=in_channels,out_dim=out_channels,dim=n_feat,level=level,num_blocks=num_blocks, mlp_intensity = mlp_intensity, nodecoder = nodecoder)  #### 将 Denoiser 改为 img2img
 
     def forward(self, img):
         # img:        b,c=3,h,w
@@ -168,11 +170,11 @@ class RetinexFormer_Single_Stage_Emb(nn.Module):
 
 
 class RetinexFormerEmb(nn.Module):
-    def __init__(self, in_channels=3, out_channels=3, n_feat=31, stage=3, num_blocks=[1,1,1], use_prior=True, I = 0, use_I = False, use_he = False, mlp_intensity = False):
+    def __init__(self, in_channels=3, out_channels=3, n_feat=31, stage=3, num_blocks=[1,1,1], use_prior=True, I = 0, use_I = False, use_he = False, mlp_intensity = False, nodecoder = False):
         super(RetinexFormerEmb, self).__init__()
         self.stage = stage
 
-        modules_body = [RetinexFormer_Single_Stage_Emb(in_channels=in_channels, out_channels=out_channels, n_feat=n_feat, level=2, num_blocks=num_blocks, use_prior=use_prior, I = I, use_I = use_I, use_he = use_he, mlp_intensity = mlp_intensity)
+        modules_body = [RetinexFormer_Single_Stage_Emb(in_channels=in_channels, out_channels=out_channels, n_feat=n_feat, level=2, num_blocks=num_blocks, use_prior=use_prior, I = I, use_I = use_I, use_he = use_he, mlp_intensity = mlp_intensity, nodecoder = nodecoder)
                         for _ in range(stage)]
         
         self.body = nn.Sequential(*modules_body)
