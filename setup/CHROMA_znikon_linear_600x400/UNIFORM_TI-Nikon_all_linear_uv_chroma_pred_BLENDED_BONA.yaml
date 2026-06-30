@@ -30,7 +30,7 @@ datasets:
     persistent_workers: true
     return_I: true
     return_chroma: true
-    chroma_space: xy
+    chroma_space: uv
     feed_I: true
     pred_I: true
     pred_chroma: true
@@ -60,7 +60,7 @@ datasets:
     num_worker_per_gpu: 0
     return_I: true
     return_chroma: true
-    chroma_space: xy
+    chroma_space: uv
     Ifrom: sensors
 
     gamma_in: 1
@@ -86,7 +86,7 @@ datasets:
     num_worker_per_gpu: 0
     return_I: true
     return_chroma: true
-    chroma_space: xy
+    chroma_space: uv
     Ifrom: sensors
 
     gamma_in: 1
