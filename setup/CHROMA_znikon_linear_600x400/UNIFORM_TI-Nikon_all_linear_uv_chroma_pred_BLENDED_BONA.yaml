@@ -4,7 +4,7 @@ scale: 1
 num_gpu: 1
 
 datasets:
-  root: /data/storage/datasets/Lowlight-datasets/OURdataset_linear/nikon/
+  root: /home/tfgG05/nikon_combinations/
   train:
     name: TrainSet
     type: Triplet
@@ -18,16 +18,16 @@ datasets:
     
     use_shuffle: true
     batch_size_per_gpu: 16
-    num_worker_per_gpu: 4
+    num_worker_per_gpu: 10
     
-    total_epochs: 1000
+    total_epochs: 3000
     gt_size: 128
     gt_sizes: [128]
 
     dataset_enlarge_ratio: 1
     prefetch_mode: cuda
     pin_memory: true
-    
+    persistent_workers: true
     return_I: true
     return_chroma: true
     chroma_space: uv
@@ -41,7 +41,11 @@ datasets:
     gamma_out: 1
 
     i2use: all
-    color_input: ["White", "Red", "Green", "Blue"]
+    color_input: ['White', 'Red', 'Green', 'Blue',
+              'Rg50', 'Rb50', 'Gb50', 'Rw50', 'Gw50', 'Bw50',
+              'Rg20', 'Rg80', 'Rb20', 'Rb80', 'Gb20', 'Gb80',
+              'Rw20', 'Rw80', 'Gw20', 'Gw80', 'Bw20', 'Bw80',
+              'Rgb33', 'Rgw33']
     color_gt: ["White"]
 
   val:
@@ -64,7 +68,11 @@ datasets:
     gamma_out: 1
 
     i2use: all
-    color_input: ["White", "Red", "Green", "Blue"]
+    color_input: ['White', 'Red', 'Green', 'Blue',
+              'Rg50', 'Rb50', 'Gb50', 'Rw50', 'Gw50', 'Bw50',
+              'Rg25', 'Rg75', 'Rb25', 'Rb75', 'Gb25', 'Gb75',
+              'Rw25', 'Rw75', 'Gw25', 'Gw75', 'Bw25', 'Bw75',
+              'Rgb33', 'Rgw33']
 
   test:
     name: TestSet
@@ -86,7 +94,11 @@ datasets:
     gamma_out: 1
 
     i2use: all
-    color_input: ["White", "Red", "Green", "Blue"]
+    color_input: ['White', 'Red', 'Green', 'Blue',
+              'Rg50', 'Rb50', 'Gb50', 'Rw50', 'Gw50', 'Bw50',
+              'Rg25', 'Rg75', 'Rb25', 'Rb75', 'Gb25', 'Gb75',
+              'Rw25', 'Rw75', 'Gw25', 'Gw75', 'Bw25', 'Bw75',
+              'Rgb33', 'Rgw33']
 
 network_g:
   type: RetinexFormerEmb
@@ -133,10 +145,11 @@ train:
     l_m: 1
     l_tr: 1
     l_chroma: 1
+    l_chroma_uniform: 1
 
 val:
   window_size: 4
-  val_freq: 1
+  val_freq: 3000
   save_img: true
   save_img_freq: 100
   log_img_freq: 500
@@ -152,7 +165,7 @@ val:
 
 test:
   window_size: 4
-  val_freq: 1
+  val_freq: 3000
   save_img: true
   rgb2bgr: true
   use_image: false
@@ -174,7 +187,7 @@ gpu_id: [0]
 wandb:
   project: CHROMA-MILL-Retinexformer
   entity: tfm-priubrogent
-  resume: must            
-  id: ldpehmyp
+  resume: ~            
+  id: ~
 
 

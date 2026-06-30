@@ -105,6 +105,14 @@ class Denoiser_emb(nn.Module):
         except:
             self.embedding_done = fea.clone()
 
+        # # Force spatial uniformity in forward pass (use as loss instead)
+        # illu_pred = fea[:, 0:1, :, :].mean(dim=(2,3), keepdim=True)
+        # chroma_pred = fea[:, 1:3, :, :].mean(dim=(2,3), keepdim=True)
+        # fea[:, 0:1, :, :] = illu_pred.expand_as(fea[:, 0:1, :, :])
+        # fea[:, 1:3, :, :] = chroma_pred.expand_as(fea[:, 1:3, :, :])
+        # self.embedding_done = fea[:, 3:, :, :].clone()
+
+
         # Decoder
         for i, (FeaUpSample, Fution, LeWinBlcok) in enumerate(self.decoder_layers):
             fea = FeaUpSample(fea)

@@ -4,11 +4,7 @@ scale: 1
 num_gpu: 1
 
 datasets:
-<<<<<<<< HEAD:setup/CHROMA_znikon_linear_600x400/l40s_TI-Nikon_all_linear_xy_chroma_pred_BLENDED.yaml
-  root: /home/ramon/TFM_POL/OURdataset_linear/nikon_combinations
-========
-  root: /home/tfgG05/nikon_combinations/
->>>>>>>> origin/main:setup/CHROMA_znikon_linear_600x400/UNIFORM_TI-Nikon_all_linear_xy_chroma_pred_BLENDED_BONA.yaml
+  root: /home/ramon/TFM_POL/OURdataset_linear/nikon_combinations/
   train:
     name: TrainSet
     type: Triplet
@@ -21,27 +17,20 @@ datasets:
       type: disk
     
     use_shuffle: true
-<<<<<<<< HEAD:setup/CHROMA_znikon_linear_600x400/l40s_TI-Nikon_all_linear_xy_chroma_pred_BLENDED.yaml
-    batch_size_per_gpu: 48
-    num_worker_per_gpu: 8
-    
-    total_epochs: 2000
-========
     batch_size_per_gpu: 32
-    num_worker_per_gpu: 12
+    num_worker_per_gpu: 4
     
-    total_epochs: 3000
->>>>>>>> origin/main:setup/CHROMA_znikon_linear_600x400/UNIFORM_TI-Nikon_all_linear_xy_chroma_pred_BLENDED_BONA.yaml
+    total_epochs: 1000
     gt_size: 128
     gt_sizes: [128]
 
     dataset_enlarge_ratio: 1
     prefetch_mode: cuda
     pin_memory: true
-    persistent_workers: true
+    
     return_I: true
     return_chroma: true
-    chroma_space: xy
+    chroma_space: uv
     feed_I: true
     pred_I: true
     pred_chroma: true
@@ -52,11 +41,7 @@ datasets:
     gamma_out: 1
 
     i2use: all
-    color_input: ['White', 'Red', 'Green', 'Blue',
-              'Rg50', 'Rb50', 'Gb50', 'Rw50', 'Gw50', 'Bw50',
-              'Rg20', 'Rg80', 'Rb20', 'Rb80', 'Gb20', 'Gb80',
-              'Rw20', 'Rw80', 'Gw20', 'Gw80', 'Bw20', 'Bw80',
-              'Rgb33', 'Rgw33']
+    color_input: ["White", "Red", "Green", "Blue"]
     color_gt: ["White"]
 
   val:
@@ -71,7 +56,7 @@ datasets:
     num_worker_per_gpu: 0
     return_I: true
     return_chroma: true
-    chroma_space: xy
+    chroma_space: uv
     Ifrom: sensors
 
     gamma_in: 1
@@ -79,11 +64,7 @@ datasets:
     gamma_out: 1
 
     i2use: all
-    color_input: ['White', 'Red', 'Green', 'Blue',
-              'Rg50', 'Rb50', 'Gb50', 'Rw50', 'Gw50', 'Bw50',
-              'Rg25', 'Rg75', 'Rb25', 'Rb75', 'Gb25', 'Gb75',
-              'Rw25', 'Rw75', 'Gw25', 'Gw75', 'Bw25', 'Bw75',
-              'Rgb33', 'Rgw33']
+    color_input: ["White", "Red", "Green", "Blue"]
 
   test:
     name: TestSet
@@ -97,7 +78,7 @@ datasets:
     num_worker_per_gpu: 0
     return_I: true
     return_chroma: true
-    chroma_space: xy
+    chroma_space: uv
     Ifrom: sensors
 
     gamma_in: 1
@@ -105,11 +86,7 @@ datasets:
     gamma_out: 1
 
     i2use: all
-    color_input: ['White', 'Red', 'Green', 'Blue',
-              'Rg50', 'Rb50', 'Gb50', 'Rw50', 'Gw50', 'Bw50',
-              'Rg25', 'Rg75', 'Rb25', 'Rb75', 'Gb25', 'Gb75',
-              'Rw25', 'Rw75', 'Gw25', 'Gw75', 'Bw25', 'Bw75',
-              'Rgb33', 'Rgw33']
+    color_input: ["White", "Red", "Green", "Blue"]
 
 network_g:
   type: RetinexFormerEmb
@@ -160,10 +137,10 @@ train:
 
 val:
   window_size: 4
-  val_freq: 10000
+  val_freq: 1000
   save_img: true
-  save_img_freq: 100
-  log_img_freq: 500
+  save_img_freq: 1000
+  log_img_freq: 5000
   rgb2bgr: true
   use_image: false
   max_minibatch: 1
@@ -176,7 +153,7 @@ val:
 
 test:
   window_size: 4
-  val_freq: 10000
+  val_freq: 1000
   save_img: true
   rgb2bgr: true
   use_image: false

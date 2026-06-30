@@ -118,10 +118,12 @@ class ImageCleanModel(BaseModel):
             self.l_sd = self.opt["train"]["losses"]["l_sd"]
             self.l_m = self.opt["train"]["losses"]["l_m"]
             self.l_chroma = self.opt["train"]["losses"].get("l_chroma", 0)
+            self.l_chroma_uniform = self.opt["train"]["losses"].get("l_chroma_uniform", 0)
         except:
             self.l_sd = 0
             self.l_m = 0
             self.l_chroma = 0
+            self.l_chroma_uniform = 0
 
     def init_training_settings(self):
         self.net_g.train()
@@ -632,6 +634,11 @@ class ImageCleanModel(BaseModel):
             l_chroma = F.mse_loss(pred, real) * self.l_chroma
             loss_dict['l_chroma'] = l_chroma
             loss_all += l_chroma
+
+            if self.l_chroma_uniform > 0:
+                l_uniform = chroma_pred.var(dim=(2, 3)).mean() * self.l_chroma_uniform
+                loss_dict['l_chroma_uniform'] = l_uniform
+                loss_all += l_uniform
             # print("CHROMA PRED SHAPE: ", chroma_pred.shape)
 
 
