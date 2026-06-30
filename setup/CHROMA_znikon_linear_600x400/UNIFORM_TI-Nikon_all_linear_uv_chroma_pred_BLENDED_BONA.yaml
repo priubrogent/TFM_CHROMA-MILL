@@ -17,8 +17,8 @@ datasets:
       type: disk
     
     use_shuffle: true
-    batch_size_per_gpu: 16
-    num_worker_per_gpu: 10
+    batch_size_per_gpu: 32
+    num_worker_per_gpu: 12
     
     total_epochs: 3000
     gt_size: 128
