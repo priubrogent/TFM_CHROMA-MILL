@@ -4,7 +4,7 @@ scale: 1
 num_gpu: 1
 
 datasets:
-  root: /data/storage/datasets/Lowlight-datasets/OURdataset_linear/nikon/
+  root: /home/tfgG05/nikon_combinations/
   train:
     name: TrainSet
     type: Triplet
@@ -20,7 +20,7 @@ datasets:
     batch_size_per_gpu: 16
     num_worker_per_gpu: 4
     
-    total_epochs: 2000
+    total_epochs: 1000
     gt_size: 128
     gt_sizes: [128]
 
@@ -41,7 +41,7 @@ datasets:
     gamma_out: 1
 
     i2use: all
-    color_input: ["White", "Red", "Green", "Blue"]
+    color_input: all
     color_gt: ["White"]
 
   val:
@@ -64,7 +64,7 @@ datasets:
     gamma_out: 1
 
     i2use: all
-    color_input: ["White", "Red", "Green", "Blue"]
+    color_input: all
 
   test:
     name: TestSet
@@ -86,7 +86,7 @@ datasets:
     gamma_out: 1
 
     i2use: all
-    color_input: ["White", "Red", "Green", "Blue"]
+    color_input: all
 
 network_g:
   type: RetinexFormerEmb
@@ -133,6 +133,7 @@ train:
     l_m: 1
     l_tr: 1
     l_chroma: 1
+    l_chroma_uniform: 1
 
 val:
   window_size: 4
@@ -178,8 +179,3 @@ wandb:
   id: ~
 
 
-curriculum:
-  enabled: true
-  start_epoch: 500
-  end_epoch: 750      
-  schedule: linear
